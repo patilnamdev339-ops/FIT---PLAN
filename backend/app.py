@@ -2,7 +2,9 @@ import json
 import logging
 import os
 import re
+import secrets
 import urllib.request
+import urllib.parse
 import urllib.error
 from datetime import date, datetime, timedelta, timezone
 from flask import Flask, jsonify, request, session, g
@@ -448,6 +450,114 @@ def create_app(test_config: dict | None = None) -> Flask:
 
         if not user.is_active:
             return jsonify({"error": "This account has been deactivated."}), 403
+
+        session.clear()
+        session["user_id"] = user.id
+        session.permanent = True
+
+        token = generate_auth_token(user.id)
+        bundle = build_user_bundle(user)
+        bundle["token"] = token
+        return jsonify(bundle), 200
+
+    @app.post("/api/auth/firebase")
+    @rate_limit(max_requests=25, window_seconds=60)
+    def firebase_auth():
+        data = request.get_json(silent=True) or {}
+        id_token_str = str(data.get("idToken", "")).strip()
+        client_name = str(data.get("name", "")).strip()
+        client_email = str(data.get("email", "")).strip().lower()
+        gender = str(data.get("gender", "male")).strip().lower()
+        initial_goal = str(data.get("initialGoal", "generalFitness")).strip()
+
+        if not id_token_str:
+            return jsonify({"error": "Missing Firebase ID token."}), 400
+
+        verified_email = None
+        verified_name = None
+
+        # Verify ID token with Google tokeninfo endpoint
+        try:
+            req_url = f"https://oauth2.googleapis.com/tokeninfo?id_token={urllib.parse.quote(id_token_str)}"
+            req = urllib.request.Request(req_url, headers={"User-Agent": "FitPlan-Server/1.0"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                if resp.status == 200:
+                    token_info = json.loads(resp.read().decode("utf-8"))
+                    verified_email = token_info.get("email")
+                    verified_name = token_info.get("name") or token_info.get("email", "").split("@")[0]
+        except Exception as exc:
+            logger.warning("Google tokeninfo verification failed or offline: %s", exc)
+
+        email = (verified_email or client_email).strip().lower()
+        name = (verified_name or client_name or (email.split("@")[0] if email else "Athlete")).strip()
+
+        if not email or not EMAIL_REGEX.match(email):
+            return jsonify({"error": "A valid email address could not be verified from Firebase."}), 400
+
+        goal_aliases = {
+            "weightloss": "fatLoss",
+            "weight_loss": "fatLoss",
+            "musclegain": "muscleGain",
+            "muscle_gain": "muscleGain",
+            "leanbulk": "leanBulk",
+            "lean_bulk": "leanBulk",
+            "generalfitness": "generalFitness",
+            "general_fitness": "generalFitness",
+        }
+        initial_goal = goal_aliases.get(initial_goal.lower(), initial_goal)
+        if initial_goal not in VALID_GOALS:
+            initial_goal = "generalFitness"
+        if gender not in ("male", "female"):
+            gender = "male"
+
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            # Create user account linked to Firebase identity
+            random_pw = hash_password(secrets.token_urlsafe(32))
+            default_avatar = "female_athlete" if gender == "female" else "male_athlete"
+
+            user = User(
+                full_name=name or "Athlete",
+                email=email,
+                password_hash=random_pw,
+                is_active=True,
+            )
+            db.session.add(user)
+            db.session.flush()
+
+            profile = UserProfile(
+                user_id=user.id,
+                gender=gender,
+                avatar_id=default_avatar,
+                assessment_completed=False,
+            )
+            goal = FitnessGoalModel(
+                user_id=user.id,
+                fitness_goal=initial_goal,
+                is_active=True,
+            )
+            user_settings = UserSettings(user_id=user.id)
+
+            db.session.add_all([profile, goal, user_settings])
+            db.session.commit()
+            logger.info("Created new user %d (%s) via Firebase authentication", user.id, user.email)
+        else:
+            if not user.is_active:
+                return jsonify({"error": "This account has been deactivated."}), 403
+            
+            # Update name if previously empty
+            if (not user.full_name or user.full_name == "Athlete") and name:
+                user.full_name = name
+                
+            # Ensure related records exist
+            if not user.profile:
+                db.session.add(UserProfile(user_id=user.id, gender=gender, avatar_id="male_athlete"))
+            active_goal = FitnessGoalModel.query.filter_by(user_id=user.id, is_active=True).first()
+            if not active_goal:
+                db.session.add(FitnessGoalModel(user_id=user.id, fitness_goal=initial_goal, is_active=True))
+            if not user.settings:
+                db.session.add(UserSettings(user_id=user.id))
+            db.session.commit()
 
         session.clear()
         session["user_id"] = user.id

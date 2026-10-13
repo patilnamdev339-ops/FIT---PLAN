@@ -447,3 +447,57 @@ def test_rate_limiting_on_auth(client):
     )
     assert blocked.status_code == 429
     assert blocked.get_json()["code"] == "RATE_LIMITED"
+
+
+def test_firebase_auth_flow(client):
+    from unittest.mock import patch, MagicMock
+    import json
+
+    # 1. Missing token
+    res = client.post("/api/auth/firebase", json={})
+    assert res.status_code == 400
+    assert "Missing Firebase ID token" in res.get_json()["error"]
+
+    # 2. Valid token with mocked Google response
+    mock_resp = MagicMock()
+    mock_resp.status = 200
+    mock_resp.read.return_value = json.dumps({
+        "email": "firebase.athlete@example.com",
+        "name": "Firebase Athlete",
+        "sub": "firebase_sub_12345"
+    }).encode("utf-8")
+    mock_resp.__enter__.return_value = mock_resp
+
+    with patch("urllib.request.urlopen", return_value=mock_resp):
+        res = client.post(
+            "/api/auth/firebase",
+            json={
+                "idToken": "fake_firebase_google_id_token_12345",
+                "gender": "female",
+                "initialGoal": "weightLoss",
+            },
+        )
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["user"]["email"] == "firebase.athlete@example.com"
+        assert data["user"]["name"] == "Firebase Athlete"
+        assert data["initialGoal"] == "fatLoss"
+        assert "token" in data
+        jwt_token = data["token"]
+
+        # 3. Verify user bundle via /api/auth/me
+        me_resp = client.get("/api/auth/me", headers={"Authorization": f"Bearer {jwt_token}"})
+        assert me_resp.status_code == 200
+        me_data = me_resp.get_json()
+        assert me_data["user"]["email"] == "firebase.athlete@example.com"
+
+        # 4. Repeated login with same token updates/persists smoothly
+        res2 = client.post(
+            "/api/auth/firebase",
+            json={
+                "idToken": "fake_firebase_google_id_token_12345",
+            },
+        )
+        assert res2.status_code == 200
+        assert res2.get_json()["user"]["email"] == "firebase.athlete@example.com"
+

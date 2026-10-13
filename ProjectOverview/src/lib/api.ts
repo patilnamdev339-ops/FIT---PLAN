@@ -131,6 +131,19 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  loginWithFirebase: (data: {
+    idToken: string;
+    name?: string;
+    email?: string;
+    photoUrl?: string;
+    gender?: "male" | "female";
+    initialGoal?: FitnessGoal;
+  }) =>
+    apiRequest<UserBundle>("/auth/firebase", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   logout: async () => {
     try {
       await apiRequest<{ message: string }>("/auth/logout", { method: "POST" });

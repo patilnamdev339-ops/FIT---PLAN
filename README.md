@@ -140,3 +140,36 @@ npm.cmd run build
    - Use the provided [`render.yaml`](render.yaml) blueprint or create two services:
      - **Backend Service (Python)**: Command: `gunicorn backend.app:app`. Set environment variables: `DB_ENGINE=mysql`, `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`, `SECRET_KEY`.
      - **Frontend Service (Static Site)**: Build command: `npm run build`, Publish directory: `dist`. Set `VITE_API_URL` to your backend URL.
+
+---
+
+## 7. Firebase Authentication & Google One-Click Sign-In
+
+FitPlan supports **Firebase Authentication with Google One-Click Sign-In** seamlessly integrated with the backend MySQL database.
+
+### How It Works
+1. The user clicks **Continue with Google** on the login or registration page.
+2. Firebase opens the Google OAuth popup and verifies the user's Google account.
+3. The frontend passes the Google ID token to `POST /api/auth/firebase`.
+4. The Flask backend verifies the token with Google's OAuth endpoints.
+5. The backend automatically provisions or retrieves the user's account in **MySQL** (`fitness_planner_db`), initializes their profile (`user_profiles`, `fitness_goals`, `user_settings`), and returns an authenticated session and JWT Bearer token.
+6. The user gains instant access to their personalized Dashboard, Mifflin-St Jeor biometric planner, and progress tracker.
+
+### Firebase Setup Steps (5 Minutes)
+1. Go to the [Firebase Console](https://console.firebase.google.com/) and create a new project (e.g., `fitplan-app`).
+2. In the left navigation, click **Build → Authentication**, then click **Get Started**.
+3. Under the **Sign-in method** tab, click **Google**, toggle **Enable**, select your project support email, and click **Save**.
+4. In your project settings (⚙️ icon next to Project Overview), scroll down to **Your apps** and click the **Web (</>)** icon.
+5. Register your app (e.g., `FitPlan Web`) and copy the `firebaseConfig` object values.
+6. **Connect to FitPlan via either method:**
+   - **Method A (Interactive in UI)**: Open `http://localhost:8443`, click **Connect Firebase Authentication** on the login page, paste your Firebase config JSON or individual keys, and click **Save & Connect**.
+   - **Method B (Environment File)**: Add the variables to your `.env` or `ProjectOverview/.env`:
+     ```env
+     VITE_FIREBASE_API_KEY=AIzaSy...
+     VITE_FIREBASE_AUTH_DOMAIN=fitplan-app.firebaseapp.com
+     VITE_FIREBASE_PROJECT_ID=fitplan-app
+     VITE_FIREBASE_STORAGE_BUCKET=fitplan-app.appspot.com
+     VITE_FIREBASE_MESSAGING_SENDER_ID=123456789012
+     VITE_FIREBASE_APP_ID=1:123456789012:web:abcdef123456
+     ```
+
