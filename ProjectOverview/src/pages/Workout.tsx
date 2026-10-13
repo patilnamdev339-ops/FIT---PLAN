@@ -17,6 +17,7 @@ import {
   Clock,
   Sparkles,
   Award,
+  Calculator,
 } from "lucide-react";
 
 interface Props {
@@ -192,6 +193,46 @@ export default function Workout({
   });
   const [savingSession, setSavingSession] = useState(false);
 
+  // 1-Rep Max Calculator State
+  const [showOneRmModal, setShowOneRmModal] = useState(false);
+  const [rmWeight, setRmWeight] = useState("80");
+  const [rmReps, setRmReps] = useState("5");
+
+  const calcOneRm = () => {
+    const w = parseFloat(rmWeight) || 0;
+    const r = parseInt(rmReps) || 1;
+    if (w <= 0 || r <= 0) return { oneRm: 0, zones: [] };
+    if (r === 1) {
+      return {
+        oneRm: Math.round(w),
+        zones: [
+          { pct: "100%", reps: "1 rep (1RM)", weight: Math.round(w) },
+          { pct: "95%", reps: "2 reps", weight: Math.round(w * 0.95) },
+          { pct: "90%", reps: "3–4 reps", weight: Math.round(w * 0.90) },
+          { pct: "85%", reps: "5–6 reps", weight: Math.round(w * 0.85) },
+          { pct: "80%", reps: "8–10 reps", weight: Math.round(w * 0.80) },
+          { pct: "75%", reps: "10–12 reps", weight: Math.round(w * 0.75) },
+          { pct: "70%", reps: "15+ reps", weight: Math.round(w * 0.70) },
+        ],
+      };
+    }
+    const brzycki = w / (1.0278 - 0.0278 * Math.min(12, r));
+    const epley = w * (1 + 0.0333 * r);
+    const avgOneRm = Math.round((brzycki + epley) / 2);
+    return {
+      oneRm: avgOneRm,
+      zones: [
+        { pct: "100%", reps: "1 rep (1RM)", weight: avgOneRm },
+        { pct: "95%", reps: "2 reps", weight: Math.round(avgOneRm * 0.95) },
+        { pct: "90%", reps: "3–4 reps", weight: Math.round(avgOneRm * 0.90) },
+        { pct: "85%", reps: "5–6 reps", weight: Math.round(avgOneRm * 0.85) },
+        { pct: "80%", reps: "8–10 reps", weight: Math.round(avgOneRm * 0.80) },
+        { pct: "75%", reps: "10–12 reps", weight: Math.round(avgOneRm * 0.75) },
+        { pct: "70%", reps: "15+ reps", weight: Math.round(avgOneRm * 0.70) },
+      ],
+    };
+  };
+
   const day = workoutPlan[activeDay];
 
   const notify = (msg: string) => {
@@ -308,17 +349,125 @@ export default function Workout({
             {workoutPlan.length} days/week · {durationMin} min target · Track exercises, sets, and weights lifted.
           </p>
         </div>
-        {day && (
+        <div className="flex items-center flex-wrap gap-2.5 self-start sm:self-auto">
           <button
             type="button"
-            onClick={openSessionLogger}
-            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1.5 self-start sm:self-auto"
+            onClick={() => setShowOneRmModal(true)}
+            className="bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"
+            title="Estimate your 1-Rep Max and working weight percentages"
           >
-            <Check className="w-4 h-4" />
-            <span>Log {day.day} Session</span>
+            <Calculator className="w-3.5 h-3.5 text-sky-400" />
+            <span>1RM Calculator</span>
           </button>
-        )}
+          {day && (
+            <button
+              type="button"
+              onClick={openSessionLogger}
+              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1.5"
+            >
+              <Check className="w-4 h-4" />
+              <span>Log {day.day} Session</span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* 1-Rep Max Calculator Modal */}
+      {showOneRmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md p-6 shadow-2xl relative space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Calculator className="w-4 h-4 text-sky-400" />
+                <h3 className="font-display font-bold text-base text-white">
+                  1-Rep Max (1RM) Estimator
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOneRmModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Calculate your maximum single-rep strength using the Brzycki and Epley formulas to plan your working sets.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">
+                  Weight Lifted (kg)
+                </label>
+                <input
+                  type="number"
+                  min="5"
+                  max="500"
+                  step="0.5"
+                  value={rmWeight}
+                  onChange={(e) => setRmWeight(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-sky-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">
+                  Reps Completed
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={rmReps}
+                  onChange={(e) => setRmReps(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-sky-500"
+                />
+              </div>
+            </div>
+
+            {(() => {
+              const res = calcOneRm();
+              return (
+                <div className="space-y-3">
+                  <div className="bg-slate-950 border border-sky-500/30 rounded-xl p-4 text-center">
+                    <p className="text-slate-400 text-[11px] font-mono uppercase tracking-wider">
+                      Estimated 1-Rep Max
+                    </p>
+                    <p className="font-mono font-black text-3xl text-sky-400 mt-1">
+                      {res.oneRm} <span className="text-sm text-slate-400 font-normal">kg</span>
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-950/60 border border-slate-800 rounded-xl overflow-hidden">
+                    <div className="p-2.5 bg-slate-950 border-b border-slate-800 text-[11px] font-mono font-bold text-slate-300">
+                      Training Intensity Zones
+                    </div>
+                    <div className="divide-y divide-slate-800/60 max-h-48 overflow-y-auto">
+                      {res.zones.map((z) => (
+                        <div
+                          key={z.pct}
+                          className="flex items-center justify-between px-3 py-2 text-xs"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-sky-400 text-[11px] w-10">
+                              {z.pct}
+                            </span>
+                            <span className="text-slate-400 text-[11px]">{z.reps}</span>
+                          </div>
+                          <span className="font-mono font-bold text-slate-200">
+                            {z.weight} kg
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {statusMsg && (
         <div className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 px-4 py-3 rounded-xl text-xs font-semibold flex items-center justify-between shadow-sm">

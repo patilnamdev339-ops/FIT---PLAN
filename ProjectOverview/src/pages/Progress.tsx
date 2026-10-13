@@ -20,6 +20,8 @@ import {
   Check,
   X,
   AlertCircle,
+  Calculator,
+  Download,
 } from "lucide-react";
 
 interface Props {
@@ -71,6 +73,67 @@ export default function Progress({
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  // US Navy Body Fat Calculator State
+  const [showNavyModal, setShowNavyModal] = useState(false);
+  const [navyGender, setNavyGender] = useState<"male" | "female">("male");
+  const [navyHeight, setNavyHeight] = useState("175");
+  const [navyNeck, setNavyNeck] = useState("38");
+  const [navyWaist, setNavyWaist] = useState("84");
+  const [navyHip, setNavyHip] = useState("95");
+  const [calculatedBf, setCalculatedBf] = useState<number | null>(null);
+
+  const calculateNavyBf = () => {
+    const h = parseFloat(navyHeight);
+    const n = parseFloat(navyNeck);
+    const w = parseFloat(navyWaist);
+    const hip = parseFloat(navyHip);
+    if (!h || !n || !w || w <= n) return;
+    let bf = 0;
+    if (navyGender === "male") {
+      bf = 495 / (1.0324 - 0.19077 * Math.log10(w - n) + 0.15456 * Math.log10(h)) - 450;
+    } else {
+      if (w + hip <= n) return;
+      bf = 495 / (1.29579 - 0.35004 * Math.log10(w + hip - n) + 0.22100 * Math.log10(h)) - 450;
+    }
+    const val = Math.round(Math.max(3, Math.min(60, bf)) * 10) / 10;
+    setCalculatedBf(val);
+  };
+
+  const applyCalculatedBf = () => {
+    if (calculatedBf !== null) {
+      setForm((f) => ({
+        ...f,
+        waist: navyWaist || f.waist,
+        bodyFatPct: calculatedBf.toString(),
+      }));
+      setShowNavyModal(false);
+      setShowForm(true);
+    }
+  };
+
+  const exportProgressCsv = () => {
+    if (!progress.length) return;
+    const headers = ["Date", "Weight_kg", "Waist_cm", "Body_Fat_pct", "Workout_Completed", "Notes"];
+    const rows = progress.map((p) => [
+      p.isoDate || p.date,
+      p.weight,
+      p.waist ?? "",
+      p.bodyFatPct ?? "",
+      p.workoutCompleted ? "YES" : "NO",
+      `"${(p.notes || "").replace(/"/g, '""')}"`,
+    ]);
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `fitplan_progress_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const filteredData = useMemo(() => {
     if (dateFilter === "all") return progress;
@@ -148,14 +211,35 @@ export default function Progress({
             Persisted progress records filtered in real-time from your MySQL database.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm((v) => !v)}
-          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1.5 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Log Measurement</span>
-        </button>
+        <div className="flex items-center flex-wrap gap-2.5 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={exportProgressCsv}
+            disabled={!progress.length}
+            className="bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 disabled:opacity-40 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"
+            title="Download your progress history as CSV"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Export CSV</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowNavyModal(true)}
+            className="bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"
+            title="Calculate body fat % using US Navy anthropometric equation"
+          >
+            <Calculator className="w-3.5 h-3.5 text-sky-400" />
+            <span>Body Fat Calc</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowForm((v) => !v)}
+            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Log Measurement</span>
+          </button>
+        </div>
       </div>
 
       {/* Date Filter Bar */}
@@ -257,9 +341,18 @@ export default function Progress({
               />
             </div>
             <div>
-              <label className="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">
-                Body Fat (%)
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-mono text-slate-400 uppercase tracking-wider">
+                  Body Fat (%)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowNavyModal(true)}
+                  className="text-[10px] font-mono text-sky-400 hover:text-sky-300 underline"
+                >
+                  Estimate
+                </button>
+              </div>
               <input
                 type="number"
                 step="0.1"
@@ -326,6 +419,142 @@ export default function Progress({
             </button>
           </div>
         </form>
+      )}
+
+      {/* US Navy Body Fat Estimator Modal */}
+      {showNavyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md p-6 shadow-2xl relative space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Calculator className="w-4 h-4 text-sky-400" />
+                <h3 className="font-display font-bold text-base text-white">
+                  US Navy Body Fat Calculator
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNavyModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Calculates body fat percentage using the standardized US Navy anthropometric equation from circumference measurements.
+            </p>
+
+            <div className="flex gap-2 p-1 bg-slate-950 border border-slate-800 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setNavyGender("male")}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  navyGender === "male"
+                    ? "bg-sky-500 text-slate-950 shadow-sm"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                Male Formula
+              </button>
+              <button
+                type="button"
+                onClick={() => setNavyGender("female")}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  navyGender === "female"
+                    ? "bg-sky-500 text-slate-950 shadow-sm"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                Female Formula
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">
+                  Height (cm)
+                </label>
+                <input
+                  type="number"
+                  min="120"
+                  max="250"
+                  value={navyHeight}
+                  onChange={(e) => setNavyHeight(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-sky-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">
+                  Neck Circumference (cm)
+                </label>
+                <input
+                  type="number"
+                  min="20"
+                  max="70"
+                  value={navyNeck}
+                  onChange={(e) => setNavyNeck(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-sky-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">
+                  Waist at Navel (cm)
+                </label>
+                <input
+                  type="number"
+                  min="40"
+                  max="200"
+                  value={navyWaist}
+                  onChange={(e) => setNavyWaist(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-sky-500"
+                />
+              </div>
+              {navyGender === "female" && (
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">
+                    Hips at Widest (cm)
+                  </label>
+                  <input
+                    type="number"
+                    min="50"
+                    max="220"
+                    value={navyHip}
+                    onChange={(e) => setNavyHip(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={calculateNavyBf}
+              className="w-full bg-sky-500 hover:bg-sky-400 text-slate-950 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-sky-500/20"
+            >
+              Calculate Estimated Body Fat
+            </button>
+
+            {calculatedBf !== null && (
+              <div className="bg-slate-950 border border-sky-500/30 rounded-xl p-4 text-center space-y-2">
+                <p className="text-slate-400 text-[11px] font-mono uppercase tracking-wider">
+                  Estimated Body Fat
+                </p>
+                <p className="font-mono font-black text-3xl text-sky-400">
+                  {calculatedBf}%
+                </p>
+                <button
+                  type="button"
+                  onClick={applyCalculatedBf}
+                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-1.5 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Apply to Log Form</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Summary KPI Cards */}
