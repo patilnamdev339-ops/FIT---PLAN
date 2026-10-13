@@ -1,0 +1,11 @@
+{
+  "title": "FitPlan — Personalized Fitness, Diet & Workout Planner",
+  "description": "Science-backed fitness assessment, personalized nutrition and macro planning, workout tracking, and progress analytics.",
+  "robots": {
+    "index": true
+  },
+  "accessibility": {
+    "addBypassLinks": true,
+    "ignoreReducedMotion": false
+  }
+}

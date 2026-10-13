@@ -1,0 +1,47 @@
+services:
+  # 1. Python Flask Backend API Service
+  - type: web
+    name: fitplan-backend-api
+    runtime: python
+    rootDir: .
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: gunicorn backend.app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    healthCheckPath: /api/health
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DB_ENGINE
+        value: mysql
+      - key: MYSQL_HOST
+        sync: false
+      - key: MYSQL_PORT
+        value: "3306"
+      - key: MYSQL_USER
+        sync: false
+      - key: MYSQL_PASSWORD
+        sync: false
+      - key: MYSQL_DATABASE
+        value: fitplan_db
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: SESSION_COOKIE_SAMESITE
+        value: None
+      - key: FRONTEND_ORIGIN
+        sync: false
+
+  # 2. React + Vite Static Frontend Site
+  - type: web
+    name: fitplan-frontend
+    runtime: static
+    rootDir: ProjectOverview
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
