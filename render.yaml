@@ -14,6 +14,10 @@ services:
         generateValue: true
       - key: DB_ENGINE
         value: mysql
+      - key: STRICT_MYSQL
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
       - key: MYSQL_HOST
         sync: false
       - key: MYSQL_PORT
@@ -23,7 +27,7 @@ services:
       - key: MYSQL_PASSWORD
         sync: false
       - key: MYSQL_DATABASE
-        value: fitplan_db
+        value: fitness_planner_db
       - key: SESSION_COOKIE_SECURE
         value: "true"
       - key: SESSION_COOKIE_SAMESITE
