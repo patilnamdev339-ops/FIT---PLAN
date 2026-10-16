@@ -10,7 +10,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 import pymysql
-from backend.config import Config
+from backend.config import Config, get_ssl_ca_path
 
 
 def test_and_init_mysql(create_schema: bool = True) -> tuple[bool, str]:
@@ -24,7 +24,8 @@ def test_and_init_mysql(create_schema: bool = True) -> tuple[bool, str]:
     user = Config.MYSQL_USER
     password = Config.MYSQL_PASSWORD
     database = Config.MYSQL_DATABASE
-    use_ssl = False
+    ca_path = get_ssl_ca_path()
+    use_ssl = bool(ca_path)
 
     if db_url:
         try:
@@ -59,8 +60,14 @@ def test_and_init_mysql(create_schema: bool = True) -> tuple[bool, str]:
             "connect_timeout": 6,
             "autocommit": True,
         }
-        if use_ssl:
-            connect_kwargs["ssl"] = ssl.create_default_context()
+        if use_ssl or ca_path:
+            if ca_path:
+                ssl_ctx = ssl.create_default_context(cafile=ca_path)
+                ssl_ctx.check_hostname = True
+                ssl_ctx.verify_mode = ssl.CERT_REQUIRED
+                connect_kwargs["ssl"] = ssl_ctx
+            else:
+                connect_kwargs["ssl"] = ssl.create_default_context()
 
         # Try connecting directly to the specified database first
         conn = None

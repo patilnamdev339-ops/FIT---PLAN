@@ -19,15 +19,17 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: MYSQL_HOST
-        sync: false
+        value: mysql-3f751391-patilnamdev339-ba47.d.aivencloud.com
       - key: MYSQL_PORT
-        value: "3306"
+        value: "14873"
       - key: MYSQL_USER
-        sync: false
+        value: avnadmin
       - key: MYSQL_PASSWORD
         sync: false
       - key: MYSQL_DATABASE
-        value: fitness_planner_db
+        value: defaultdb
+      - key: MYSQL_SSL_CA
+        value: backend/certs/ca.pem
       - key: SESSION_COOKIE_SECURE
         value: "true"
       - key: SESSION_COOKIE_SAMESITE

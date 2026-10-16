@@ -1336,7 +1336,17 @@ def create_app(test_config: dict | None = None) -> Flask:
     return app
 
 
-app = create_app()
+# WSGI module-level application instance
+if "pytest" in sys.modules or os.getenv("TESTING", "").lower() in ("1", "true"):
+    app = create_app(
+        {
+            "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "SECRET_KEY": "pytest-dummy-key-for-test-collection",
+        }
+    )
+else:
+    app = create_app()
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
