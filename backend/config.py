@@ -15,19 +15,27 @@ def build_mysql_uri() -> str:
     if explicit_url:
         # Normalize mysql:// to mysql+pymysql:// for SQLAlchemy
         if explicit_url.startswith("mysql://"):
-            return explicit_url.replace("mysql://", "mysql+pymysql://", 1)
+            explicit_url = explicit_url.replace("mysql://", "mysql+pymysql://", 1)
+        # Normalize Aiven's ssl-mode parameter to ssl_mode for PyMySQL
+        if "ssl-mode=" in explicit_url:
+            explicit_url = explicit_url.replace("ssl-mode=", "ssl_mode=")
         return explicit_url
 
     host = os.getenv("MYSQL_HOST", "127.0.0.1").strip()
     port = os.getenv("MYSQL_PORT", "3306").strip()
     user = os.getenv("MYSQL_USER", "fitness_app").strip()
-    password = os.getenv("MYSQL_PASSWORD", "Harsh@123")
+    password = os.getenv("MYSQL_PASSWORD", "")
     database = os.getenv("MYSQL_DATABASE", "fitness_planner_db").strip()
 
     encoded_user = quote_plus(user)
     encoded_pass = quote_plus(password)
     auth_part = f"{encoded_user}:{encoded_pass}" if password else encoded_user
-    return f"mysql+pymysql://{auth_part}@{host}:{port}/{database}?charset=utf8mb4"
+
+    ssl_flag = ""
+    if os.getenv("MYSQL_SSL", "").lower() in ("1", "true", "required") or "aivencloud.com" in host.lower():
+        ssl_flag = "&ssl_mode=REQUIRED"
+
+    return f"mysql+pymysql://{auth_part}@{host}:{port}/{database}?charset=utf8mb4{ssl_flag}"
 
 
 class Config:
