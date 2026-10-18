@@ -19,7 +19,7 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: MYSQL_HOST
-        value: mysql-3f751391-patilnamdev339-ba47.d.aivencloud.com
+        value: fitplan-mysql-patilnamdev339-ba47.d.aivencloud.com
       - key: MYSQL_PORT
         value: "14873"
       - key: MYSQL_USER
@@ -35,18 +35,18 @@ services:
       - key: SESSION_COOKIE_SAMESITE
         value: None
       - key: FRONTEND_ORIGIN
-        sync: false
+        value: https://fitplan-frontend.onrender.com
 
   # 2. React + Vite Static Frontend Site
   - type: web
     name: fitplan-frontend
     runtime: static
     rootDir: ProjectOverview
-    buildCommand: npm install && npm run build
+    buildCommand: pnpm install --frozen-lockfile && pnpm run build
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        sync: false
+        value: https://fit-plan-qn8e.onrender.com
       - key: VITE_FIREBASE_API_KEY
         sync: false
       - key: VITE_FIREBASE_AUTH_DOMAIN

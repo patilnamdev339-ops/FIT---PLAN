@@ -9,7 +9,15 @@ import type {
   LoggedExercise,
 } from "./types";
 
-const API_BASE = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
+function resolveApiBase(): string {
+  const envUrl = (import.meta.env.VITE_API_URL || "").trim().replace(/\/+$/, "");
+  if (!envUrl) {
+    return "/api";
+  }
+  return envUrl.endsWith("/api") ? envUrl : `${envUrl}/api`;
+}
+
+const API_BASE = resolveApiBase();
 
 // Session token key used only to attach the signed Bearer token header alongside HTTP-only cookies
 const SESSION_TOKEN_KEY = "fitplan_auth_token";
@@ -59,14 +67,20 @@ async function apiRequest<T>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
+  // Ensure clean endpoint path concatenation with API_BASE
+  const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const cleanPath = path.startsWith("/api/") ? path.slice(4) : path;
+  const targetUrl = `${API_BASE}${cleanPath}`;
+
   let response: Response;
   try {
-    response = await fetch(`${API_BASE}${endpoint}`, {
+    response = await fetch(targetUrl, {
       ...options,
       headers,
       credentials: "include",
     });
-  } catch {
+  } catch (err) {
+    console.error(`FitPlan API network error on ${options.method || "GET"} ${targetUrl}:`, err);
     throw new ApiError(
       "Cannot reach the FitPlan server. Please ensure the backend service is running.",
       0,

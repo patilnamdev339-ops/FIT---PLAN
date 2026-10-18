@@ -63,7 +63,7 @@ def build_mysql_uri() -> str:
         return explicit_url
 
     host = os.getenv(
-        "MYSQL_HOST", "mysql-3f751391-patilnamdev339-ba47.d.aivencloud.com"
+        "MYSQL_HOST", "fitplan-mysql-patilnamdev339-ba47.d.aivencloud.com"
     ).strip()
     port = os.getenv("MYSQL_PORT", "14873").strip()
     user = os.getenv("MYSQL_USER", "avnadmin").strip()
@@ -95,7 +95,7 @@ class Config:
     )
     DB_ENGINE = os.getenv("DB_ENGINE", "mysql").strip().lower()
     MYSQL_HOST = os.getenv(
-        "MYSQL_HOST", "mysql-3f751391-patilnamdev339-ba47.d.aivencloud.com"
+        "MYSQL_HOST", "fitplan-mysql-patilnamdev339-ba47.d.aivencloud.com"
     ).strip()
     MYSQL_PORT = int(os.getenv("MYSQL_PORT", "14873"))
     MYSQL_USER = os.getenv("MYSQL_USER", "avnadmin").strip()
@@ -104,7 +104,7 @@ class Config:
     MYSQL_SSL_CA = os.getenv(
         "MYSQL_SSL_CA", str(BASE_DIR / "backend" / "certs" / "ca.pem")
     ).strip()
-    STRICT_MYSQL = os.getenv("STRICT_MYSQL", "true").lower() in ("1", "true", "yes")
+    STRICT_MYSQL = os.getenv("STRICT_MYSQL", "false").lower() in ("1", "true", "yes")
 
     SQLITE_PATH = BASE_DIR / "backend" / "database" / "fitplan.db"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -129,7 +129,7 @@ class Config:
     # CORS Origins
     FRONTEND_ORIGIN = os.getenv(
         "FRONTEND_ORIGIN",
-        "http://localhost:8443,http://127.0.0.1:8443,http://localhost:5173,http://127.0.0.1:5173",
+        "https://fitplan-frontend.onrender.com,http://localhost:8443,http://127.0.0.1:8443,http://localhost:5173,http://127.0.0.1:5173",
     )
     MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10 MB max upload payload
 

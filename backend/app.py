@@ -268,6 +268,30 @@ def build_user_bundle(user: User) -> dict:
     }
 
 
+class ApiPrefixMiddleware:
+    """WSGI middleware ensuring requests to standard endpoints with or without /api are handled."""
+
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        path = environ.get("PATH_INFO", "")
+        api_prefixes = (
+            "/auth",
+            "/health",
+            "/assessment",
+            "/recommendations",
+            "/diet",
+            "/workout",
+            "/progress",
+            "/profile",
+            "/settings",
+        )
+        if any(path == p or path.startswith(f"{p}/") for p in api_prefixes):
+            environ["PATH_INFO"] = f"/api{path}"
+        return self.wsgi_app(environ, start_response)
+
+
 def create_app(test_config: dict | None = None) -> Flask:
     """Application factory for the FitPlan Flask backend."""
     app = Flask(__name__)
@@ -278,16 +302,30 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     _configure_database(app, test_config)
 
-    origins = [
+    app.wsgi_app = ApiPrefixMiddleware(app.wsgi_app)
+
+    configured_origins = [
         o.strip()
         for o in app.config.get("FRONTEND_ORIGIN", "").split(",")
         if o.strip()
     ]
+    default_origins = [
+        "https://fitplan-frontend.onrender.com",
+        r"https://.*\.onrender\.com",
+        "http://localhost:8443",
+        "http://127.0.0.1:8443",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+    for d in default_origins:
+        if d not in configured_origins:
+            configured_origins.append(d)
+
     CORS(
         app,
-        resources={r"/api/*": {"origins": origins or ["*"]}},
+        resources={r"/*": {"origins": configured_origins}},
         supports_credentials=True,
-        allow_headers=["Content-Type", "Authorization"],
+        allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     )
 
